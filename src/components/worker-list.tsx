@@ -11,9 +11,10 @@ interface WorkerListProps {
   workerHours: Record<string, number>;
   selectedWorkerId: string | null;
   onSelectWorker: (workerId: string) => void;
+  onDeleteWorker: (workerId: string) => void;
 }
 
-export default function WorkerList({ workers, workerHours, selectedWorkerId, onSelectWorker }: WorkerListProps) {
+export default function WorkerList({ workers, workerHours, selectedWorkerId, onSelectWorker, onDeleteWorker }: WorkerListProps) {
   return (
     <Card className="shadow-lg rounded-lg">
       <CardHeader>
@@ -35,6 +36,7 @@ export default function WorkerList({ workers, workerHours, selectedWorkerId, onS
                   hours={workerHours[worker.id] || 0}
                   isSelected={selectedWorkerId === worker.id}
                   onSelectWorker={onSelectWorker}
+                  onDeleteWorker={onDeleteWorker}
                 />
               ))}
             </ul>

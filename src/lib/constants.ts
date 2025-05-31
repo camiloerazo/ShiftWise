@@ -4,11 +4,23 @@ export type DayOfWeek = typeof DAYS_OF_WEEK[number];
 const START_HOUR = 8; // 8 AM
 const END_HOUR = 22; // 10 PM
 
-export const generateTimeSlots = (): string[] => {
-  const slots: string[] = [];
+const formatTimeRange = (hour: number, minute: number): { display: string; id: string } => {
+  const displayHour = hour % 12 || 12; // Convert to 12-hour format
+  const nextMinute = minute === 30 ? '00' : '30';
+  const nextHour = minute === 30 ? (hour + 1) % 24 : hour;
+  const nextDisplayHour = nextHour % 12 || 12;
+  
+  return {
+    display: `${displayHour}:${String(minute).padStart(2, '0')}-${nextDisplayHour}:${nextMinute}`,
+    id: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}` // Use 24-hour format for unique ID
+  };
+};
+
+export const generateTimeSlots = (): Array<{ display: string; id: string }> => {
+  const slots: Array<{ display: string; id: string }> = [];
   for (let hour = START_HOUR; hour < END_HOUR; hour++) {
-    slots.push(`${String(hour).padStart(2, '0')}:00`);
-    slots.push(`${String(hour).padStart(2, '0')}:30`);
+    slots.push(formatTimeRange(hour, 0));
+    slots.push(formatTimeRange(hour, 30));
   }
   return slots;
 };

@@ -1,11 +1,15 @@
-
 export interface Worker {
   id: string;
   name: string;
   color: string;
 }
 
-// Schedule: Day -> Time Slot -> Array of Worker IDs (or null if unassigned)
+export type TimeSlot = {
+  display: string;
+  id: string;
+};
+
+// Schedule: Day -> Time Slot ID -> Array of Worker IDs (or null if unassigned)
 // Example: { "Mon": { "08:00": ["worker1_id", "worker2_id"], "08:30": null }, "Tue": { ... } }
 export type ScheduleData = Record<string, Record<string, string[] | null>>;
 

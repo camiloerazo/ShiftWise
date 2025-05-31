@@ -1,20 +1,26 @@
-
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import type { Worker, ScheduleData } from '@/types';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import type { Worker, ScheduleData, TimeSlot } from '@/types';
 import { DAYS_OF_WEEK, TIME_SLOTS, HALF_HOUR_INCREMENT, DayOfWeek, DEFAULT_WORKER_COLORS } from '@/lib/constants';
 import WorkerForm from './worker-form';
 import WorkerList from './worker-list';
 import ScheduleGrid from './schedule-grid';
 import { useToast } from "@/hooks/use-toast";
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Plus, Trash2, Download } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import DownloadScheduleButton from '@/components/download-schedule-button';
 
 const initialSchedule = (): ScheduleData => {
   const sched: ScheduleData = {};
   DAYS_OF_WEEK.forEach(day => {
     sched[day] = {};
     TIME_SLOTS.forEach(slot => {
-      sched[day][slot] = null; // Initialize with null for no assignments
+      sched[day][slot.id] = null; // Initialize with null for no assignments
     });
   });
   return sched;
@@ -26,6 +32,7 @@ export default function ShiftWiseApp() {
   const [selectedWorkerId, setSelectedWorkerId] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
   const { toast } = useToast();
+  const scheduleRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setIsClient(true);
@@ -48,18 +55,18 @@ export default function ShiftWiseApp() {
         for (const day of DAYS_OF_WEEK) {
           if (parsedSchedule[day]) {
             for (const slot of TIME_SLOTS) {
-              const assignment = parsedSchedule[day][slot];
+              const assignment = parsedSchedule[day][slot.id];
               if (typeof assignment === 'string') {
-                parsedSchedule[day][slot] = [assignment]; // Convert to array
-              } else if (assignment === undefined || (Array.isArray(assignment) && assignment.length === 0) ) {
-                 // Ensure null for empty or undefined rather than empty array for consistency
-                parsedSchedule[day][slot] = null;
+                parsedSchedule[day][slot.id] = [assignment]; // Convert to array
+              } else if (assignment === undefined || (Array.isArray(assignment) && assignment.length === 0)) {
+                // Ensure null for empty or undefined rather than empty array for consistency
+                parsedSchedule[day][slot.id] = null;
               }
             }
           } else {
             // If a day is missing from stored data, initialize it
             parsedSchedule[day] = {};
-            TIME_SLOTS.forEach(slot => parsedSchedule[day][slot] = null);
+            TIME_SLOTS.forEach(slot => parsedSchedule[day][slot.id] = null);
           }
         }
         setSchedule(parsedSchedule);
@@ -85,6 +92,25 @@ export default function ShiftWiseApp() {
     }
   }, [schedule, isClient]);
 
+  const handleDeleteWorker = useCallback((workerId: string) => {
+    setWorkers((prevWorkers) => prevWorkers.filter((w) => w.id !== workerId));
+    if (selectedWorkerId === workerId) {
+      setSelectedWorkerId(null);
+    }
+    // Remove worker's shifts from schedule
+    setSchedule((prevSchedule) => {
+      const newSchedule = { ...prevSchedule };
+      DAYS_OF_WEEK.forEach((day) => {
+        TIME_SLOTS.forEach((slot) => {
+          const assignments = newSchedule[day][slot.id];
+          if (assignments) {
+            newSchedule[day][slot.id] = assignments.filter((id) => id !== workerId);
+          }
+        });
+      });
+      return newSchedule;
+    });
+  }, [selectedWorkerId]);
 
   const handleAddWorker = useCallback((name: string, color: string) => {
     const newWorker: Worker = { id: crypto.randomUUID(), name, color };
@@ -95,26 +121,26 @@ export default function ShiftWiseApp() {
     toast({ title: "Worker Added", description: `${name} has been added.`});
   }, [selectedWorkerId, workers.length, toast]);
 
-  const handleToggleShift = useCallback((day: DayOfWeek, timeSlot: string, workerIdToToggle: string) => {
+  const handleToggleShift = useCallback((day: DayOfWeek, timeSlotId: string, workerIdToToggle: string) => {
     setSchedule(prevSchedule => {
       const newSchedule = { ...prevSchedule };
       newSchedule[day] = { ...newSchedule[day] }; // Ensure day object is copied
 
-      const currentAssignments: string[] | null = newSchedule[day][timeSlot];
+      const currentAssignments: string[] | null = newSchedule[day][timeSlotId];
 
       if (currentAssignments === null) {
         // Slot is empty, assign the new worker
-        newSchedule[day][timeSlot] = [workerIdToToggle];
+        newSchedule[day][timeSlotId] = [workerIdToToggle];
       } else {
         // Slot has existing assignments (it's an array)
         const workerIndex = currentAssignments.indexOf(workerIdToToggle);
         if (workerIndex > -1) {
           // Worker is already assigned, unassign them
           const updatedAssignments = currentAssignments.filter(id => id !== workerIdToToggle);
-          newSchedule[day][timeSlot] = updatedAssignments.length > 0 ? updatedAssignments : null;
+          newSchedule[day][timeSlotId] = updatedAssignments.length > 0 ? updatedAssignments : null;
         } else {
           // Worker is not assigned, add them
-          newSchedule[day][timeSlot] = [...currentAssignments, workerIdToToggle];
+          newSchedule[day][timeSlotId] = [...currentAssignments, workerIdToToggle];
         }
       }
       return newSchedule;
@@ -127,7 +153,7 @@ export default function ShiftWiseApp() {
 
     DAYS_OF_WEEK.forEach(day => {
       TIME_SLOTS.forEach(slot => {
-        const assignedWorkerIds = schedule[day]?.[slot]; // This is now string[] | null
+        const assignedWorkerIds = schedule[day]?.[slot.id];
         if (Array.isArray(assignedWorkerIds)) {
           assignedWorkerIds.forEach(workerId => {
             if (workers.find(w => w.id === workerId)) { // Ensure worker still exists
@@ -162,10 +188,19 @@ export default function ShiftWiseApp() {
             workerHours={workerHours}
             selectedWorkerId={selectedWorkerId}
             onSelectWorker={handleSelectWorker}
+            onDeleteWorker={handleDeleteWorker}
           />
         </div>
         <div className="lg:col-span-2 min-h-[400px] lg:min-h-0 flex flex-col">
-           <ScheduleGrid
+          <div className="flex justify-end mb-4">
+            <DownloadScheduleButton
+              schedule={schedule}
+              workers={workers}
+              scheduleRef={scheduleRef}
+            />
+          </div>
+          <ScheduleGrid
+            ref={scheduleRef}
             schedule={schedule}
             workers={workers}
             selectedWorkerId={selectedWorkerId}

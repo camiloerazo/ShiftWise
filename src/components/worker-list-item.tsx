@@ -3,16 +3,23 @@
 import type { Worker } from '@/types';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
-import { Clock } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Clock, Trash2 } from 'lucide-react';
 
 interface WorkerListItemProps {
   worker: Worker;
   hours: number;
   isSelected: boolean;
   onSelectWorker: (workerId: string) => void;
+  onDeleteWorker: (workerId: string) => void;
 }
 
-export default function WorkerListItem({ worker, hours, isSelected, onSelectWorker }: WorkerListItemProps) {
+export default function WorkerListItem({ worker, hours, isSelected, onSelectWorker, onDeleteWorker }: WorkerListItemProps) {
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onDeleteWorker(worker.id);
+  };
+
   return (
     <li
       key={worker.id}
@@ -35,10 +42,21 @@ export default function WorkerListItem({ worker, hours, isSelected, onSelectWork
         ></span>
         <span className="font-medium">{worker.name}</span>
       </div>
-      <Badge variant={isSelected ? "default" : "secondary"} className="flex items-center text-sm px-2 py-1">
-        <Clock className="mr-1 h-3 w-3" />
-        {hours.toFixed(1)} hrs
-      </Badge>
+      <div className="flex items-center gap-2">
+        <Badge variant={isSelected ? "default" : "secondary"} className="flex items-center text-sm px-2 py-1">
+          <Clock className="mr-1 h-3 w-3" />
+          {hours.toFixed(1)} hrs
+        </Badge>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleDelete}
+          className="h-8 w-8"
+          aria-label={`Delete ${worker.name}`}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
     </li>
   );
 }
