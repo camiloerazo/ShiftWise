@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { ScheduleData, Worker } from '@/types';
@@ -15,18 +16,10 @@ interface ScheduleGridProps {
 }
 
 export default function ScheduleGrid({ schedule, workers, selectedWorkerId, onToggleShift }: ScheduleGridProps) {
-  const getWorkerColor = (workerId: string | null): string => {
-    if (!workerId) return 'transparent';
-    const worker = workers.find(w => w.id === workerId);
-    return worker ? worker.color : 'transparent';
-  };
-
   const handleCellClick = (day: DayOfWeek, timeSlot: string) => {
     if (selectedWorkerId) {
       onToggleShift(day, timeSlot, selectedWorkerId);
     } else {
-      // Optionally, provide feedback if no worker is selected
-      // This could be a toast notification
       console.warn("No worker selected to assign shift.");
     }
   };
@@ -41,7 +34,7 @@ export default function ScheduleGrid({ schedule, workers, selectedWorkerId, onTo
         {!selectedWorkerId && workers.length > 0 && (
           <div className="mt-2 p-2 bg-yellow-100 border border-yellow-300 text-yellow-700 rounded-md text-sm flex items-center">
             <AlertCircle className="h-5 w-5 mr-2" />
-            Please select a worker from the list to assign shifts.
+            Please select a worker from the list to assign/unassign shifts.
           </div>
         )}
          {workers.length === 0 && (
@@ -72,26 +65,48 @@ export default function ScheduleGrid({ schedule, workers, selectedWorkerId, onTo
                       {timeSlot}
                     </td>
                     {DAYS_OF_WEEK.map(day => {
-                      const currentWorkerId = schedule[day]?.[timeSlot] || null;
-                      const cellColor = getWorkerColor(currentWorkerId);
-                      const isAssignedToSelectedWorker = currentWorkerId === selectedWorkerId;
+                      const currentWorkerIds: string[] | null = schedule[day]?.[timeSlot] || null;
+                      const isSelectedWorkerInSlot = selectedWorkerId && Array.isArray(currentWorkerIds) && currentWorkerIds.includes(selectedWorkerId);
+                      
+                      const assignedWorkerNames = Array.isArray(currentWorkerIds) && currentWorkerIds.length > 0
+                        ? currentWorkerIds.map(id => workers.find(w => w.id === id)?.name).filter(Boolean).join(', ')
+                        : 'No one';
+
+                      const actionVerb = isSelectedWorkerInSlot ? 'unassign' : 'assign';
+                      const selectedWorkerName = selectedWorkerId ? workers.find(w => w.id === selectedWorkerId)?.name : '';
+                      const ariaLabel = `Shift for ${day} at ${timeSlot}. Assigned to: ${assignedWorkerNames}. ${selectedWorkerId ? `Click to ${actionVerb} ${selectedWorkerName}.` : 'Select a worker to modify assignments.'}`;
 
                       return (
                         <td
                           key={`${day}-${timeSlot}`}
                           className={cn(
-                            "text-center h-10 min-w-[70px] sm:min-w-[80px] transition-all duration-150 ease-in-out border-l border-r",
+                            "text-center h-10 min-w-[70px] sm:min-w-[80px] transition-all duration-150 ease-in-out border-l border-r p-0", // p-0 to allow inner divs to fill
                             selectedWorkerId ? "cursor-pointer hover:opacity-80" : "cursor-not-allowed",
-                            isAssignedToSelectedWorker && currentWorkerId && "ring-2 ring-offset-1 ring-foreground"
+                            isSelectedWorkerInSlot && "ring-2 ring-offset-1 ring-foreground"
                           )}
-                          style={{ backgroundColor: cellColor }}
                           onClick={() => handleCellClick(day, timeSlot)}
                           onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleCellClick(day, timeSlot)}
                           role="button"
                           tabIndex={selectedWorkerId ? 0 : -1}
-                          aria-label={`Shift for ${day} at ${timeSlot}. Assigned to: ${currentWorkerId ? workers.find(w=>w.id===currentWorkerId)?.name : 'No one'}. Click to ${currentWorkerId && currentWorkerId === selectedWorkerId ? 'unassign' : 'assign'} ${selectedWorkerId ? 'to ' + workers.find(w=>w.id===selectedWorkerId)?.name : ''}.`}
+                          aria-label={ariaLabel}
                         >
-                          {/* Optionally display worker initials or a small mark */}
+                          {Array.isArray(currentWorkerIds) && currentWorkerIds.length > 0 ? (
+                            <div className="flex h-full w-full">
+                              {currentWorkerIds.map(workerId => {
+                                const worker = workers.find(w => w.id === workerId);
+                                return (
+                                  <div
+                                    key={workerId}
+                                    className="flex-grow h-full"
+                                    style={{ backgroundColor: worker ? worker.color : 'transparent' }}
+                                    aria-hidden="true" 
+                                  />
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="h-full w-full bg-card" /> // Explicit background for empty cells
+                          )}
                         </td>
                       );
                     })}

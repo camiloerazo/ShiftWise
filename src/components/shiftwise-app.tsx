@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -13,7 +14,7 @@ const initialSchedule = (): ScheduleData => {
   DAYS_OF_WEEK.forEach(day => {
     sched[day] = {};
     TIME_SLOTS.forEach(slot => {
-      sched[day][slot] = null;
+      sched[day][slot] = null; // Initialize with null for no assignments
     });
   });
   return sched;
@@ -28,9 +29,9 @@ export default function ShiftWiseApp() {
 
   useEffect(() => {
     setIsClient(true);
-    // Load from localStorage if available
     const storedWorkers = localStorage.getItem('shiftwise-workers');
     const storedSchedule = localStorage.getItem('shiftwise-schedule');
+
     if (storedWorkers) {
       try {
         setWorkers(JSON.parse(storedWorkers));
@@ -39,13 +40,36 @@ export default function ShiftWiseApp() {
         localStorage.removeItem('shiftwise-workers');
       }
     }
+
     if (storedSchedule) {
-       try {
-        setSchedule(JSON.parse(storedSchedule));
+      try {
+        let parsedSchedule = JSON.parse(storedSchedule);
+        // Migration logic for old schedule format (string) to new format (string[])
+        for (const day of DAYS_OF_WEEK) {
+          if (parsedSchedule[day]) {
+            for (const slot of TIME_SLOTS) {
+              const assignment = parsedSchedule[day][slot];
+              if (typeof assignment === 'string') {
+                parsedSchedule[day][slot] = [assignment]; // Convert to array
+              } else if (assignment === undefined || (Array.isArray(assignment) && assignment.length === 0) ) {
+                 // Ensure null for empty or undefined rather than empty array for consistency
+                parsedSchedule[day][slot] = null;
+              }
+            }
+          } else {
+            // If a day is missing from stored data, initialize it
+            parsedSchedule[day] = {};
+            TIME_SLOTS.forEach(slot => parsedSchedule[day][slot] = null);
+          }
+        }
+        setSchedule(parsedSchedule);
       } catch (e) {
-        console.error("Failed to parse schedule from localStorage", e);
+        console.error("Failed to parse or migrate schedule from localStorage", e);
         localStorage.removeItem('shiftwise-schedule');
+        setSchedule(initialSchedule()); // Fallback to initial if parsing/migration fails
       }
+    } else {
+      setSchedule(initialSchedule()); // No stored schedule, use initial
     }
   }, []);
 
@@ -71,17 +95,27 @@ export default function ShiftWiseApp() {
     toast({ title: "Worker Added", description: `${name} has been added.`});
   }, [selectedWorkerId, workers.length, toast]);
 
-  const handleToggleShift = useCallback((day: DayOfWeek, timeSlot: string, workerIdToAssign: string) => {
+  const handleToggleShift = useCallback((day: DayOfWeek, timeSlot: string, workerIdToToggle: string) => {
     setSchedule(prevSchedule => {
       const newSchedule = { ...prevSchedule };
-      newSchedule[day] = { ...newSchedule[day] };
-      
-      const currentAssignment = newSchedule[day][timeSlot];
-      
-      if (currentAssignment === workerIdToAssign) {
-        newSchedule[day][timeSlot] = null; // Unassign
+      newSchedule[day] = { ...newSchedule[day] }; // Ensure day object is copied
+
+      const currentAssignments: string[] | null = newSchedule[day][timeSlot];
+
+      if (currentAssignments === null) {
+        // Slot is empty, assign the new worker
+        newSchedule[day][timeSlot] = [workerIdToToggle];
       } else {
-        newSchedule[day][timeSlot] = workerIdToAssign; // Assign or re-assign
+        // Slot has existing assignments (it's an array)
+        const workerIndex = currentAssignments.indexOf(workerIdToToggle);
+        if (workerIndex > -1) {
+          // Worker is already assigned, unassign them
+          const updatedAssignments = currentAssignments.filter(id => id !== workerIdToToggle);
+          newSchedule[day][timeSlot] = updatedAssignments.length > 0 ? updatedAssignments : null;
+        } else {
+          // Worker is not assigned, add them
+          newSchedule[day][timeSlot] = [...currentAssignments, workerIdToToggle];
+        }
       }
       return newSchedule;
     });
@@ -93,9 +127,13 @@ export default function ShiftWiseApp() {
 
     DAYS_OF_WEEK.forEach(day => {
       TIME_SLOTS.forEach(slot => {
-        const workerId = schedule[day]?.[slot];
-        if (workerId && workers.find(w => w.id === workerId)) {
-          hours[workerId] = (hours[workerId] || 0) + HALF_HOUR_INCREMENT;
+        const assignedWorkerIds = schedule[day]?.[slot]; // This is now string[] | null
+        if (Array.isArray(assignedWorkerIds)) {
+          assignedWorkerIds.forEach(workerId => {
+            if (workers.find(w => w.id === workerId)) { // Ensure worker still exists
+              hours[workerId] = (hours[workerId] || 0) + HALF_HOUR_INCREMENT;
+            }
+          });
         }
       });
     });
@@ -107,9 +145,6 @@ export default function ShiftWiseApp() {
   }, []);
   
   if (!isClient) {
-    // Render a loading state or null during SSR/SSG to avoid hydration mismatch
-    // due to localStorage access in useEffect.
-    // This could be a skeleton loader for a better UX.
     return (
         <div className="flex flex-col items-center justify-center min-h-screen p-4">
             <div className="animate-pulse text-xl font-semibold text-primary">Loading ShiftWise...</div>
