@@ -5,7 +5,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)
 ![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.0-38B2AC)
 
-ShiftWise is a modern, intuitive work schedule management application designed to streamline the process of creating and managing employee schedules. Built with a focus on user experience and efficiency, it provides a powerful yet simple interface for managing worker shifts and tracking hours.
+ShiftWise is a modern, intuitive work schedule management application designed to streamline the process of creating and managing employee schedules. Built with a focus on user experience and efficiency, it provides a powerful yet simple interface for managing worker shifts and tracking hours. 
 
 ## 🌟 Features
 
