@@ -1,6 +1,6 @@
 "use client";
 
-import React, { forwardRef } from 'react';
+import React, { forwardRef, useState, useEffect, useCallback, useRef } from 'react';
 import type { ScheduleData, Worker } from '@/types';
 import { DAYS_OF_WEEK, TIME_SLOTS, DayOfWeek } from '@/lib/constants';
 import { cn } from '@/lib/utils';
@@ -17,12 +17,76 @@ interface ScheduleGridProps {
 
 const ScheduleGrid = forwardRef<HTMLDivElement, ScheduleGridProps>(
   ({ schedule, workers, selectedWorkerId, onToggleShift }, ref) => {
-    const handleCellClick = (day: DayOfWeek, timeSlot: string) => {
-      if (selectedWorkerId) {
-        onToggleShift(day, timeSlot, selectedWorkerId);
-      } else {
-        console.warn("No worker selected to assign shift.");
+    // Track if mouse is down for drag-to-fill
+    const [isMouseDown, setIsMouseDown] = useState(false);
+
+    // Track which cells have been toggled in the current drag
+    const toggledCellsRef = useRef<Set<string>>(new Set());
+
+    useEffect(() => {
+      if (!isMouseDown) {
+        toggledCellsRef.current = new Set();
       }
+    }, [isMouseDown]);
+
+    // To prevent text selection while dragging
+    useEffect(() => {
+      if (isMouseDown) {
+        document.body.style.userSelect = 'none';
+      } else {
+        document.body.style.userSelect = '';
+      }
+      return () => {
+        document.body.style.userSelect = '';
+      };
+    }, [isMouseDown]);
+
+    // Listen for mouseup anywhere to stop drag
+    useEffect(() => {
+      const handleMouseUp = () => setIsMouseDown(false);
+      document.addEventListener('mouseup', handleMouseUp);
+      return () => document.removeEventListener('mouseup', handleMouseUp);
+    }, []);
+
+    // Toggle or remove depending on Shift key
+    const cellAction = (day: DayOfWeek, timeSlot: string, isRemove: boolean) => {
+      if (!selectedWorkerId) return;
+      const currentWorkerIds: string[] | null = schedule[day]?.[timeSlot] || null;
+      const isAssigned = Array.isArray(currentWorkerIds) && currentWorkerIds.includes(selectedWorkerId);
+      if (isRemove) {
+        if (isAssigned) {
+          onToggleShift(day, timeSlot, selectedWorkerId); // Remove
+        }
+      } else {
+        if (isAssigned) {
+          onToggleShift(day, timeSlot, selectedWorkerId); // Unassign
+        } else {
+          onToggleShift(day, timeSlot, selectedWorkerId); // Assign
+        }
+      }
+    };
+
+    // Single click handler
+    const handleCellMouseDown = (day: DayOfWeek, timeSlot: string, e?: React.MouseEvent) => {
+      setIsMouseDown(true);
+      const remove = e?.shiftKey || false;
+      const cellKey = `${day}-${timeSlot}`;
+      toggledCellsRef.current = new Set([cellKey]); // Start new drag session with only this cell
+      cellAction(day, timeSlot, remove);
+    };
+
+    // Drag handler
+    const handleCellMouseEnter = (day: DayOfWeek, timeSlot: string, e?: React.MouseEvent) => {
+      if (!isMouseDown) return;
+      const remove = e?.shiftKey || false;
+      const cellKey = `${day}-${timeSlot}`;
+      if (toggledCellsRef.current.has(cellKey)) return;
+      cellAction(day, timeSlot, remove);
+      toggledCellsRef.current.add(cellKey);
+    };
+
+    const handleCellKeyDown = (e: React.KeyboardEvent, day: DayOfWeek, timeSlot: string) => {
+      cellAction(day, timeSlot, e.shiftKey);
     };
 
     return (
@@ -85,8 +149,9 @@ const ScheduleGrid = forwardRef<HTMLDivElement, ScheduleGridProps>(
                               selectedWorkerId ? "cursor-pointer hover:opacity-80" : "cursor-not-allowed",
                               isSelectedWorkerInSlot && "ring-2 ring-offset-1 ring-foreground"
                             )}
-                            onClick={() => handleCellClick(day, timeSlot.id)}
-                            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleCellClick(day, timeSlot.id)}
+                            onMouseDown={(e) => handleCellMouseDown(day, timeSlot.id, e)}
+                            onMouseEnter={(e) => handleCellMouseEnter(day, timeSlot.id, e)}
+                            onKeyDown={(e) => handleCellKeyDown(e, day, timeSlot.id)}
                             role="button"
                             tabIndex={selectedWorkerId ? 0 : -1}
                             aria-label={ariaLabel}

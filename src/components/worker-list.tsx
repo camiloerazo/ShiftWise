@@ -6,9 +6,14 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import WorkerListItem from './worker-list-item';
 import { Users } from 'lucide-react';
 
+interface WorkerHours {
+  legalHours: number;
+  sundayHours: number;
+}
+
 interface WorkerListProps {
   workers: Worker[];
-  workerHours: Record<string, number>;
+  workerHours: Record<string, WorkerHours>;
   selectedWorkerId: string | null;
   onSelectWorker: (workerId: string) => void;
   onDeleteWorker: (workerId: string) => void;
@@ -33,7 +38,7 @@ export default function WorkerList({ workers, workerHours, selectedWorkerId, onS
                 <WorkerListItem
                   key={worker.id}
                   worker={worker}
-                  hours={workerHours[worker.id] || 0}
+                  hours={workerHours[worker.id] || { legalHours: 0, sundayHours: 0 }}
                   isSelected={selectedWorkerId === worker.id}
                   onSelectWorker={onSelectWorker}
                   onDeleteWorker={onDeleteWorker}

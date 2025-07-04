@@ -26,6 +26,42 @@ const initialSchedule = (): ScheduleData => {
   return sched;
 };
 
+// Calculate hours for a specific worker
+const calculateWorkerHours = (schedule: ScheduleData, workerId: string) => {
+  let legalHours = 0; // Monday to Saturday
+  let sundayHours = 0; // Sunday only
+
+  DAYS_OF_WEEK.forEach(day => {
+    TIME_SLOTS.forEach(slot => {
+      const assignedWorkerIds = schedule[day]?.[slot.id];
+      if (Array.isArray(assignedWorkerIds) && assignedWorkerIds.includes(workerId)) {
+        if (day === 'Sun') {
+          sundayHours += HALF_HOUR_INCREMENT;
+        } else {
+          legalHours += HALF_HOUR_INCREMENT;
+        }
+      }
+    });
+  });
+
+  return { legalHours, sundayHours };
+};
+
+// Check if adding a shift would exceed the 44-hour limit (Monday-Saturday)
+const wouldExceedLegalHours = (schedule: ScheduleData, workerId: string, day: DayOfWeek, timeSlotId: string) => {
+  if (day === 'Sun') return false; // Sunday hours don't count towards the 44-hour limit
+  
+  const { legalHours } = calculateWorkerHours(schedule, workerId);
+  const currentWorkerIds = schedule[day]?.[timeSlotId];
+  const isCurrentlyAssigned = Array.isArray(currentWorkerIds) && currentWorkerIds.includes(workerId);
+  
+  // If currently assigned, we're removing hours, so no issue
+  if (isCurrentlyAssigned) return false;
+  
+  // Check if adding 0.5 hours would exceed 44 hours
+  return legalHours + HALF_HOUR_INCREMENT > 44;
+};
+
 export default function ShiftWiseApp() {
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [schedule, setSchedule] = useState<ScheduleData>(initialSchedule());
@@ -122,6 +158,18 @@ export default function ShiftWiseApp() {
   }, [selectedWorkerId, workers.length, toast]);
 
   const handleToggleShift = useCallback((day: DayOfWeek, timeSlotId: string, workerIdToToggle: string) => {
+    // Check if this would exceed the 44-hour limit for Monday-Saturday
+    if (wouldExceedLegalHours(schedule, workerIdToToggle, day, timeSlotId)) {
+      const worker = workers.find(w => w.id === workerIdToToggle);
+      const workerName = worker?.name || 'Este trabajador';
+      toast({
+        title: "Límite de horas excedido",
+        description: `${workerName} ya completó las 44 horas semanales.`,
+        variant: "destructive"
+      });
+      return; // Don't proceed with the assignment
+    }
+
     setSchedule(prevSchedule => {
       const newSchedule = { ...prevSchedule };
       newSchedule[day] = { ...newSchedule[day] }; // Ensure day object is copied
@@ -145,23 +193,12 @@ export default function ShiftWiseApp() {
       }
       return newSchedule;
     });
-  }, []);
+  }, [schedule, workers, toast]);
 
   const workerHours = useMemo(() => {
-    const hours: Record<string, number> = {};
-    workers.forEach(worker => hours[worker.id] = 0);
-
-    DAYS_OF_WEEK.forEach(day => {
-      TIME_SLOTS.forEach(slot => {
-        const assignedWorkerIds = schedule[day]?.[slot.id];
-        if (Array.isArray(assignedWorkerIds)) {
-          assignedWorkerIds.forEach(workerId => {
-            if (workers.find(w => w.id === workerId)) { // Ensure worker still exists
-              hours[workerId] = (hours[workerId] || 0) + HALF_HOUR_INCREMENT;
-            }
-          });
-        }
-      });
+    const hours: Record<string, { legalHours: number; sundayHours: number }> = {};
+    workers.forEach(worker => {
+      hours[worker.id] = calculateWorkerHours(schedule, worker.id);
     });
     return hours;
   }, [schedule, workers]);

@@ -6,9 +6,14 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Clock, Trash2 } from 'lucide-react';
 
+interface WorkerHours {
+  legalHours: number;
+  sundayHours: number;
+}
+
 interface WorkerListItemProps {
   worker: Worker;
-  hours: number;
+  hours: WorkerHours;
   isSelected: boolean;
   onSelectWorker: (workerId: string) => void;
   onDeleteWorker: (workerId: string) => void;
@@ -43,10 +48,17 @@ export default function WorkerListItem({ worker, hours, isSelected, onSelectWork
         <span className="font-medium">{worker.name}</span>
       </div>
       <div className="flex items-center gap-2">
-        <Badge variant={isSelected ? "default" : "secondary"} className="flex items-center text-sm px-2 py-1">
-          <Clock className="mr-1 h-3 w-3" />
-          {hours.toFixed(1)} hrs
-        </Badge>
+        <div className="flex flex-col items-end gap-1">
+          <Badge variant={isSelected ? "default" : "secondary"} className="flex items-center text-xs px-2 py-0.5">
+            <Clock className="mr-1 h-3 w-3" />
+            Legal: {hours.legalHours.toFixed(1)}h
+          </Badge>
+          {hours.sundayHours > 0 && (
+            <Badge variant="outline" className="flex items-center text-xs px-2 py-0.5">
+              Sunday: {hours.sundayHours.toFixed(1)}h
+            </Badge>
+          )}
+        </div>
         <Button
           variant="ghost"
           size="icon"

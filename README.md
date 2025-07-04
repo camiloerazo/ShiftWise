@@ -5,7 +5,16 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)
 ![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.0-38B2AC)
 
-ShiftWise is a modern, intuitive work schedule management application designed to streamline the process of creating and managing employee schedules. Built with a focus on user experience and efficiency, it provides a powerful yet simple interface for managing worker shifts and tracking hours.
+## 📝 Description
+
+ShiftWise is a modern web application built with Next.js 13 and TypeScript that helps businesses manage employee schedules efficiently. The app features an interactive drag-and-drop interface, real-time updates, and local storage persistence. Built with a focus on performance and user experience, it utilizes modern web technologies including:
+
+- **Frontend**: Next.js 13 (App Router), TypeScript, TailwindCSS, shadcn/ui
+- **State Management**: React Hooks, Local Storage
+- **Development**: ESLint, TypeScript, Component-based architecture
+- **Design**: Mobile-first, Responsive layout, Accessibility-first approach
+
+The application demonstrates modern web development practices including component composition, custom hooks, and efficient state management techniques.
 
 ## 🌟 Features
 
